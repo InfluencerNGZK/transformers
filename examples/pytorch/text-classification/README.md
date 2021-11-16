@@ -41,10 +41,10 @@ python run_glue.py \
   --num_train_epochs 3 \
   --output_dir /tmp/$TASK_NAME/
 
-python run_glue_no_trainer.py \  
+python run_glue_no_trainer.py \
   --model_name_or_path bert-base-cased \
   --task_name $TASK_NAME \
-  --per_device_train_batch_size 32 \ 
+  --per_device_train_batch_size 32 \
   --learning_rate 2e-5 \
   --num_train_epochs 3 \
   --output_dir /tmp/$TASK_NAME/
