@@ -20,6 +20,9 @@ import os
 import random
 from pathlib import Path
 
+import torch
+import csv
+
 import datasets
 from datasets import load_dataset, load_metric
 from torch.utils.data import DataLoader
@@ -418,10 +421,22 @@ def main():
     progress_bar = tqdm(range(args.max_train_steps), disable=not accelerator.is_local_main_process)
     completed_steps = 0
 
+    memory_allocated_list, memory_reserved_list, memory_inactive_list = [], [], []
+    memory_allocated_list.append(torch.cuda.memory_stats()["allocated_bytes.all.current"]/1024/1024)
+    memory_reserved_list.append(torch.cuda.memory_stats()["reserved_bytes.all.current"]/1024/1024)
+    memory_inactive_list.append(torch.cuda.memory_stats()["inactive_split_bytes.all.current"]/1024/1024)
     for epoch in range(args.num_train_epochs):
         model.train()
         for step, batch in enumerate(train_dataloader):
+            if step % 10 == 0:
+                memory_allocated_list.append(torch.cuda.memory_stats()["allocated_bytes.all.current"]/1024/1024)
+                memory_reserved_list.append(torch.cuda.memory_stats()["reserved_bytes.all.current"]/1024/1024)
+                memory_inactive_list.append(torch.cuda.memory_stats()["inactive_split_bytes.all.current"]/1024/1024)
             outputs = model(**batch)
+            if step % 10 == 0:
+                memory_allocated_list.append(torch.cuda.memory_stats()["allocated_bytes.all.current"]/1024/1024)
+                memory_reserved_list.append(torch.cuda.memory_stats()["reserved_bytes.all.current"]/1024/1024)
+                memory_inactive_list.append(torch.cuda.memory_stats()["inactive_split_bytes.all.current"]/1024/1024)
             loss = outputs.loss
             loss = loss / args.gradient_accumulation_steps
             accelerator.backward(loss)
@@ -454,6 +469,11 @@ def main():
             if accelerator.is_main_process:
                 tokenizer.save_pretrained(args.output_dir)
                 repo.push_to_hub(commit_message=f"Training in progress epoch {epoch}", blocking=False)
+    with open('test.csv', 'w') as f:
+        write = csv.writer(f)
+        write.writerow(memory_allocated_list)
+        write.writerow(memory_reserved_list)
+        write.writerow(memory_inactive_list)    
 
     if args.output_dir is not None:
         accelerator.wait_for_everyone()
